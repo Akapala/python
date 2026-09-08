@@ -17,6 +17,7 @@
 6. [函数机制：无重载 + 关键字实参](#6-函数机制无重载--关键字实参)
 7. [回调函数 与 `global` 声明](#7-回调函数-与-global-声明)
 8. [闭包：让函数自带状态](#8-闭包让函数自带状态)
+9. [返回要兜底：任何路径都返回合理类型](#9-返回要兜底任何路径都返回合理类型)
 
 ---
 
@@ -273,5 +274,35 @@ screen.onkey(partial(t.pencolor, color), key)       # partial 预填参数
 
 ---
 
-> **总结**：这 8 条贯穿了 turtle 01~08 的全部代码，也是从 C/C++ 转 Python 时最容易"想当然"的地方。
-> 真要做项目时，回来查这一篇比翻 `turtle.md` 快。
+## 9. 返回要兜底：任何路径都返回合理类型
+
+**是什么**：函数里只要存在「不 return 的代码路径」（例如 `return` 只写在循环或 `if` 分支内），就有一条分支会**隐式返回 `None`**。严格类型检查（basedpyright）会把这种函数推断为 `int | None`，下游再用它就报错。
+
+```python
+def gcd(x, y):
+    for factor in range(x, 0, -1):
+        if x % factor == 0 and y % factor == 0:
+            return factor
+    # ← 没有兜底 return，检查器推断返回 int | None
+```
+
+**为什么 / 后果**：`lcm` 里的 `x * y // gcd(x, y)` 会报「`int` 与 `int | None` 不支持 `//`」，`lcm` 自身的返回类型也被拖成 `int | Unknown`。
+
+**修法**：补一个兜底 `return` 并标注返回类型，让**所有路径都返回 `int`**：
+
+```python
+def gcd(x: int, y: int) -> int:
+    for factor in range(x, 0, -1):
+        if x % factor == 0 and y % factor == 0:
+            return factor
+    return 1   # 兜底：factor 递减到 1 必同时整除，理论走不到这里
+```
+
+**坑**：只在循环 / `if` 分支里 `return`，忘了「分支不命中」的情况——这是静态检查能帮你抓、但运行时不一定立刻崩的隐患。
+
+**C/C++ 对照**：C/C++ 函数声明返回 `int` 却没在所有路径 `return`，**编译器直接报错**（编译期强制）；Python 运行时不管，是**类型检查器在替你兜底**。所以这条教训本质是：把编译器的活，交给检查器 + 自己的自觉。
+
+---
+
+> **总结**：前 8 条贯穿 turtle 01~08 的全部代码，第 9 条来自 functions 板块的调试收获，也是从 C/C++ 转 Python 时最容易"想当然"的地方。
+> 真要做项目时，回来查这一篇比翻逐课笔记快。

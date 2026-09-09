@@ -7,20 +7,35 @@
 新知识点：
     * 列表当队列用：蛇身是一串 turtle，每帧从尾巴往头逐个「接位」
     * screen.ontimer(函数, 毫秒)：注册一个定时回调，实现游戏主循环
-    * 把方向存在对象属性里：head.direction = "up"（Python 允许动态加属性）
+    * 对象属性要事先规划：用 SnakeHead(turtle.Turtle) 子类，在 __init__ 里
+      预声明 direction 属性（带 Literal 类型），而不是运行时随便挂一个
     * 网格坐标：所有位置都对齐到 CELL 的整数倍，碰撞判断才能用 distance 简单搞定
 
 运行：
     python src/turtle/08_snake_game.py
 """
 
+from typing import Literal
+
 import random
 import turtle
 
 CELL = 20                       # 一格 20 像素
 WIDTH, HEIGHT = 620, 620
-BOUND = WIDTH // 2 - CELL * 3   # 可活动的边界：留出边距，顶部还要留给计分板
+BOUND = WIDTH // 2 - CELL * 3    # 可活动的边界：留出边距，顶部还要留给计分板
 DELAY = 110                     # 每帧间隔毫秒，越小越快
+
+# 方向只可能是这 5 个值；用 Literal 锁死，传错值类型检查器会直接报错
+Direction = Literal["up", "down", "left", "right", "stop"]
+
+
+class SnakeHead(turtle.Turtle):
+    """蛇头：在标准 Turtle 上预先规划好 direction 属性，不再运行时动态挂载。"""
+
+    def __init__(self) -> None:
+        super().__init__("square")
+        self.direction: Direction = "stop"   # 提前声明，IDE/类型检查器都认识
+
 
 screen = turtle.Screen()
 screen.title("08 贪吃蛇")
@@ -28,12 +43,11 @@ screen.setup(WIDTH, HEIGHT)
 screen.bgcolor("black")
 screen.tracer(0)                # 游戏画面自己控制刷新，关掉自动动画
 
-# --- 蛇头 ---
-head = turtle.Turtle("square")  # 形状用 "square"，天然就是一格
+# --- 蛇头（用规划好的子类，方向已在 __init__ 里初始化为 "stop"）---
+head = SnakeHead()
 head.color("lime")
 head.penup()
 head.goto(0, 0)
-head.direction = "stop"         # 给对象临时挂一个属性，记录当前方向
 
 # --- 蛇身：每吃一个食物就 append 一节 ---
 segments = []
@@ -55,7 +69,7 @@ score = 0
 best = 0
 
 
-def show_score():
+def show_score() -> None:
     """刷新计分板。write 之前必须 clear，否则文字会层层叠在一起。"""
     pen.clear()
     pen.write(
@@ -65,27 +79,27 @@ def show_score():
     )
 
 
-def go_up():
+def go_up() -> None:
     if head.direction != "down":      # 禁止 180 度掉头，否则会直接撞上自己的脖子
         head.direction = "up"
 
 
-def go_down():
+def go_down() -> None:
     if head.direction != "up":
         head.direction = "down"
 
 
-def go_left():
+def go_left() -> None:
     if head.direction != "right":
         head.direction = "left"
 
 
-def go_right():
+def go_right() -> None:
     if head.direction != "left":
         head.direction = "right"
 
 
-def move_head():
+def move_head() -> None:
     """根据当前方向，把蛇头挪动一整格。"""
     if head.direction == "up":
         head.sety(head.ycor() + CELL)
@@ -97,7 +111,7 @@ def move_head():
         head.setx(head.xcor() + CELL)
 
 
-def follow():
+def follow() -> None:
     """蛇身跟随：从最后一节开始，每节挪到它前面一节的位置。
 
     顺序必须是「从尾到头」，如果从头开始挪，前一节的位置已经被覆盖，
@@ -109,14 +123,14 @@ def follow():
         segments[0].goto(head.xcor(), head.ycor())
 
 
-def move_food():
+def move_food() -> None:
     """把食物随机挪到一个网格点上。randrange 的步长参数保证对齐格子。"""
     x = random.randrange(-BOUND, BOUND + CELL, CELL)
     y = random.randrange(-BOUND, BOUND + CELL, CELL)
     food.goto(x, y)
 
 
-def add_segment():
+def add_segment() -> None:
     """吃到食物：在蛇尾追加一节。"""
     new = turtle.Turtle("square")
     new.color("gray")
@@ -128,7 +142,7 @@ def add_segment():
     segments.append(new)
 
 
-def reset():
+def reset() -> None:
     """撞墙或撞到自己：清场重来。"""
     global score
     head.goto(0, 0)
@@ -140,7 +154,7 @@ def reset():
     show_score()
 
 
-def game_loop():
+def game_loop() -> None:
     """一帧的逻辑。末尾用 ontimer 再约一次自己，就形成了游戏主循环。"""
     global score, best
 
